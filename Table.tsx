@@ -4,62 +4,69 @@ import { appsConfig, AppConfig } from '../config/appsConfig';
 
 const availableIcons = Object.keys(Icons).filter((key) => key.startsWith("Fa")); // 获取所有可用的图标
 
-const Table: React.FC = () => {
-  const [apps, setApps] = useState<AppConfig[]>(appsConfig); // 初始化状态
-  const [isEditing, setIsEditing] = useState(false); // 是否进入编辑模式
-  const [userRole, setUserRole] = useState("user"); // 模拟用户角色，"admin" 或 "user"
+const categories = Array.from(new Set(appsConfig.map((app) => app.category))); // 获取所有类别
 
-  const handleEditChange = (id: number, field: keyof AppConfig, value: string) => {
+const Table: React.FC = () => {
+  const [apps, setApps] = useState<AppConfig[]>(
+    appsConfig.map((app) => ({ ...app, isFavorite: false })) // 初始化时增加 isFavorite 状态
+  );
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // 当前选中的类别
+
+  const handleFavoriteToggle = (id: number) => {
     setApps((prev) =>
       prev.map((app) =>
-        app.id === id ? { ...app, [field]: value } : app
+        app.id === id ? { ...app, isFavorite: !app.isFavorite } : app
       )
     );
   };
 
-  const handleSave = () => {
-    setIsEditing(false);
-    console.log("Saved Config:", apps); // 模拟保存
-    // 可以通过 API 将 apps 发送到后端
+  const handleCategorySelect = (category: string | null) => {
+    setSelectedCategory(category);
   };
 
+  const filteredApps = selectedCategory
+    ? apps.filter((app) => app.category === selectedCategory)
+    : apps;
+
+  const sortedApps = [...filteredApps].sort(
+    (a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0)
+  );
+
   return (
-    <div className="p-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {apps.map((app) => {
-          const Icon = Icons[app.icon as keyof typeof Icons] || Icons.FaQuestionCircle; // 动态加载图标
-          return (
-            <div key={app.id} className="flex flex-col items-center text-center">
-              {isEditing ? (
-                <>
-                  {/* 图标选择 */}
-                  <select
-                    value={app.icon}
-                    onChange={(e) => handleEditChange(app.id, "icon", e.target.value)}
-                    className="mt-2 p-1 border rounded text-center"
-                  >
-                    {availableIcons.map((iconName) => (
-                      <option key={iconName} value={iconName}>
-                        {iconName}
-                      </option>
-                    ))}
-                  </select>
-                  {/* 名称编辑 */}
-                  <input
-                    type="text"
-                    value={app.name}
-                    onChange={(e) => handleEditChange(app.id, "name", e.target.value)}
-                    className="mt-2 p-1 border rounded text-center"
-                  />
-                  {/* 链接编辑 */}
-                  <input
-                    type="text"
-                    value={app.link}
-                    onChange={(e) => handleEditChange(app.id, "link", e.target.value)}
-                    className="mt-2 p-1 border rounded text-center"
-                  />
-                </>
-              ) : (
+    <div className="flex">
+      {/* 侧边栏 */}
+      <div className="w-48 bg-gray-100 p-4">
+        <h3 className="font-bold text-lg mb-4">Categories</h3>
+        <ul className="space-y-2">
+          <li
+            className={`cursor-pointer ${
+              selectedCategory === null ? "text-blue-500" : "text-gray-700"
+            } hover:text-blue-600`}
+            onClick={() => handleCategorySelect(null)}
+          >
+            All
+          </li>
+          {categories.map((category) => (
+            <li
+              key={category}
+              className={`cursor-pointer ${
+                selectedCategory === category ? "text-blue-500" : "text-gray-700"
+              } hover:text-blue-600`}
+              onClick={() => handleCategorySelect(category)}
+            >
+              {category}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* 主内容区 */}
+      <div className="p-4 flex-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          {sortedApps.map((app) => {
+            const Icon = Icons[app.icon as keyof typeof Icons] || Icons.FaQuestionCircle; // 动态加载图标
+            return (
+              <div key={app.id} className="flex flex-col items-center text-center w-20 h-24 sm:w-24 sm:h-28">
                 <a
                   href={app.link}
                   target="_blank"
@@ -69,32 +76,21 @@ const Table: React.FC = () => {
                   <span className="text-5xl text-blue-500 hover:text-blue-700">
                     <Icon />
                   </span>
-                  <span className="mt-2 text-base text-gray-700">{app.name}</span>
+                  <span className="mt-1 text-sm text-gray-700">{app.name}</span>
                 </a>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-4">
-        {/* 判断是否为管理员 */}
-        {userRole === "admin" && (
-          isEditing ? (
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-            >
-              Save
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Edit
-            </button>
-          )
-        )}
+                {/* 收藏按钮 */}
+                <button
+                  onClick={() => handleFavoriteToggle(app.id)}
+                  className={`mt-2 text-sm ${
+                    app.isFavorite ? "text-yellow-500" : "text-gray-400"
+                  } hover:text-yellow-600`}
+                >
+                  {app.isFavorite ? "★ 收藏" : "☆ 收藏"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
